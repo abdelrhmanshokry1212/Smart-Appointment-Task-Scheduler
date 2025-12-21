@@ -251,6 +251,13 @@ const AuthPage = ({ onLogin, onRegister }) => {
 
   const handleSubmit = async () => {
     setError('');
+
+    // Basic validation
+    if (!formData.email || !formData.password || (!isLoginView && !formData.name)) {
+      setError('Please fill in all fields');
+      return;
+    }
+
     setLoading(true);
     try {
       if (isLoginView) {
@@ -259,7 +266,10 @@ const AuthPage = ({ onLogin, onRegister }) => {
         await onRegister(formData.name, formData.email, formData.password);
       }
     } catch (err) {
-      setError(err.message || 'Authentication failed');
+      // Improved error handling
+      const message = err.response?.data?.message || err.message || 'Authentication failed';
+      // If message is array (from class-validator), show the first one
+      setError(Array.isArray(message) ? message[0] : message);
     } finally {
       setLoading(false);
     }
