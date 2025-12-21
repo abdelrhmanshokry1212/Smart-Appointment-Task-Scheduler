@@ -17,7 +17,8 @@ import {
   Sun,
   Moon,
   Activity,
-  Paperclip
+  Paperclip,
+  Upload
 } from 'lucide-react';
 
 import {
@@ -683,11 +684,30 @@ const CreateAppointmentPage = ({ onSave }) => {
 
           <div className="space-y-1">
             <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Attachments</label>
-            <input
-              type="file"
-              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 dark:text-white outline-none transition-all"
-              onChange={(e) => setFile(e.target.files[0])}
-            />
+            <div className="flex items-center justify-center w-full">
+              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-200 dark:border-slate-600 border-dashed rounded-xl cursor-pointer bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 hover:border-indigo-400 dark:hover:border-indigo-400 transition-all group">
+                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                  <Upload className="w-8 h-8 mb-3 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                  <p className="mb-2 text-sm text-slate-500 dark:text-slate-400 text-center">
+                    {file ? (
+                      <span className="font-semibold text-indigo-600 dark:text-indigo-400">{file.name}</span>
+                    ) : (
+                      <>
+                        <span className="font-semibold">Click to upload</span> or drag and drop
+                      </>
+                    )}
+                  </p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500">
+                    {file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : "SVG, PNG, JPG or PDF (MAX. 5MB)"}
+                  </p>
+                </div>
+                <input
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => setFile(e.target.files[0])}
+                />
+              </label>
+            </div>
           </div>
 
           <button
