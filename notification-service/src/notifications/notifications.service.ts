@@ -17,4 +17,8 @@ export class NotificationsService {
     async findAllByUserId(userId: string): Promise<Notification[]> {
         return this.notificationModel.find({ userId }).exec();
     }
+
+    async markAsRead(id: string): Promise<Notification> {
+        return this.notificationModel.findByIdAndUpdate(id, { read: true }, { new: true }).exec() as Promise<Notification>;
+    }
 }

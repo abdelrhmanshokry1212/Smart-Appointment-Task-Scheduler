@@ -39,6 +39,11 @@ export const getNotifications = async (userId) => {
     return res.data;
 };
 
+export const markNotificationAsRead = async (id) => {
+    const res = await api.patch(`/notifications/${id}/read`);
+    return res.data;
+};
+
 export const updateAppointment = async (id, data) => {
     const res = await api.put(`/appointments/${id}`, data);
     return res.data;

@@ -1,5 +1,5 @@
 
-import { Controller, Get, Post, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { CreateNotificationDto } from './dto/notification.dto';
 
@@ -15,5 +15,10 @@ export class NotificationsController {
     @Get('user/:userId')
     findAllByUserId(@Param('userId') userId: string) {
         return this.notificationsService.findAllByUserId(userId);
+    }
+
+    @Patch(':id/read')
+    markAsRead(@Param('id') id: string) {
+        return this.notificationsService.markAsRead(id);
     }
 }

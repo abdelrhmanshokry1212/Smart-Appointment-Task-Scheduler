@@ -29,7 +29,8 @@ import {
   updateAppointment,
   deleteAppointment,
   getProductivity,
-  uploadFile
+  uploadFile,
+  markNotificationAsRead
 } from './api';
 
 const App = () => {
@@ -708,8 +709,13 @@ const CreateAppointmentPage = ({ onSave }) => {
 };
 
 const NotificationsPage = ({ notifications, setNotifications }) => {
-  const markAsRead = (id) => {
-    setNotifications(notifications.map(n => n.id === id ? { ...n, read: true } : n));
+  const markAsRead = async (id) => {
+    try {
+      await markNotificationAsRead(id);
+      setNotifications(notifications.map(n => (n._id || n.id) === id ? { ...n, read: true } : n));
+    } catch (err) {
+      console.error("Failed to mark as read", err);
+    }
   };
 
   const clearAll = () => {
@@ -737,7 +743,7 @@ const NotificationsPage = ({ notifications, setNotifications }) => {
         ) : (
           notifications.map((notif) => (
             <div
-              key={notif.id}
+              key={notif._id || notif.id}
               className={`p-6 rounded-3xl border transition-all flex gap-4 ${notif.read ? 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 opacity-75' : 'bg-white dark:bg-slate-800 border-indigo-100 dark:border-indigo-900/50 shadow-md ring-1 ring-indigo-50 dark:ring-indigo-900/30'
                 }`}
             >
@@ -753,7 +759,7 @@ const NotificationsPage = ({ notifications, setNotifications }) => {
                 <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">{notif.text}</p>
                 {!notif.read && (
                   <button
-                    onClick={() => markAsRead(notif.id)}
+                    onClick={() => markAsRead(notif._id || notif.id)}
                     className="mt-3 text-indigo-600 dark:text-indigo-400 text-xs font-bold hover:underline"
                   >
                     Mark as read
