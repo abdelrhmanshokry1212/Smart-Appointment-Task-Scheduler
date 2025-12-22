@@ -19,8 +19,13 @@ export const loginUser = async (email, password) => {
     }
 };
 
-export const registerUser = async (name, email, password) => {
-    const res = await api.post('/users/register', { name, email, password });
+export const registerUser = async (name, email, password, profilePhotoUrl, jobTitle, phoneNumber) => {
+    const res = await api.post('/users/register', { name, email, password, profilePhotoUrl, jobTitle, phoneNumber });
+    return res.data;
+};
+
+export const updateUser = async (id, data) => {
+    const res = await api.patch(`/users/${id}`, data);
     return res.data;
 };
 

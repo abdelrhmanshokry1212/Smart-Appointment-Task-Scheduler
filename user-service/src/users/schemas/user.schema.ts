@@ -14,6 +14,18 @@ export class User {
 
     @Prop({ required: true })
     password: string;
+
+    @Prop({ required: false })
+    profilePhotoUrl: string;
+
+    @Prop({ required: false })
+    jobTitle: string;
+
+    @Prop({ required: false })
+    phoneNumber: string;
+
+    @Prop({ required: false })
+    bio: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

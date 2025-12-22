@@ -18,7 +18,13 @@ import {
   Moon,
   Activity,
   Paperclip,
-  Upload
+  Upload,
+  Settings,
+  Mail,
+  Phone as PhoneIcon,
+  Briefcase,
+  FileText,
+  Camera
 } from 'lucide-react';
 
 import {
@@ -31,7 +37,8 @@ import {
   deleteAppointment,
   getProductivity,
   uploadFile,
-  markNotificationAsRead
+  markNotificationAsRead,
+  updateUser
 } from './api';
 
 const App = () => {
@@ -55,6 +62,27 @@ const App = () => {
   useEffect(() => {
     if (isLoggedIn && user) {
       loadData();
+
+      // Session Timeout Logic
+      let timeout;
+      const resetTimer = () => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => {
+          alert("Session timed out due to inactivity.");
+          setIsLoggedIn(false);
+          setUser(null);
+        }, 15 * 60 * 1000); // 15 minutes
+      };
+
+      window.addEventListener('mousemove', resetTimer);
+      window.addEventListener('keydown', resetTimer);
+      resetTimer(); // Start timer
+
+      return () => {
+        clearTimeout(timeout);
+        window.removeEventListener('mousemove', resetTimer);
+        window.removeEventListener('keydown', resetTimer);
+      };
     }
   }, [isLoggedIn, user]);
 
@@ -114,8 +142,8 @@ const App = () => {
         setUser(userData);
         setIsLoggedIn(true);
       }}
-      onRegister={async (name, email, password) => {
-        const userData = await registerUser(name, email, password);
+      onRegister={async (name, email, password, profilePhotoUrl, jobTitle, phoneNumber) => {
+        const userData = await registerUser(name, email, password, profilePhotoUrl, jobTitle, phoneNumber);
         setUser(userData);
         setIsLoggedIn(true);
       }}
@@ -195,9 +223,7 @@ const App = () => {
               />
             </div>
 
-            <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-700 font-bold border-2 border-white shadow-sm" title={user?.name}>
-              {getInitials(user?.name)}
-            </div>
+            <UserMenu user={user} onLogout={() => setIsLoggedIn(false)} navigateTo={navigateTo} getInitials={getInitials} />
           </div>
         </header>
 
@@ -217,6 +243,22 @@ const App = () => {
             }
           }} />}
           {currentPage === 'notifications' && <NotificationsPage notifications={notifications} setNotifications={setNotifications} />}
+          {currentPage === 'profile' && (
+            <ProfilePage
+              user={user}
+              setUser={setUser}
+              onUpdate={async (data) => {
+                try {
+                  const updatedUser = await updateUser(user._id || user.id, data);
+                  setUser(updatedUser);
+                  alert("Profile updated successfully!");
+                } catch (err) {
+                  console.error("Failed to update profile", err);
+                  alert("Failed to update profile");
+                }
+              }}
+            />
+          )}
         </div>
       </main>
     </div>
@@ -245,9 +287,25 @@ const NavItem = ({ icon, label, active, onClick, badge }) => (
 
 const AuthPage = ({ onLogin, onRegister }) => {
   const [isLoginView, setIsLoginView] = useState(true);
-  const [formData, setFormData] = useState({ name: '', email: '', password: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', password: '', jobTitle: '', phoneNumber: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [file, setFile] = useState(null);
+
+  // Math CAPTCHA State
+  const [captcha, setCaptcha] = useState({ q: '', a: 0 });
+  const [captchaInput, setCaptchaInput] = useState('');
+
+  useEffect(() => {
+    generateCaptcha();
+  }, []);
+
+  const generateCaptcha = () => {
+    const num1 = Math.floor(Math.random() * 10) + 1;
+    const num2 = Math.floor(Math.random() * 10) + 1;
+    setCaptcha({ q: `${num1} + ${num2}`, a: num1 + num2 });
+    setCaptchaInput('');
+  };
 
   const handleSubmit = async () => {
     setError('');
@@ -258,12 +316,31 @@ const AuthPage = ({ onLogin, onRegister }) => {
       return;
     }
 
+    // CAPTCHA Validation for Signup
+    if (!isLoginView) {
+      if (parseInt(captchaInput) !== captcha.a) {
+        setError('Incorrect CAPTCHA answer');
+        generateCaptcha();
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       if (isLoginView) {
         await onLogin(formData.email, formData.password);
       } else {
-        await onRegister(formData.name, formData.email, formData.password);
+        let profilePhotoUrl = null;
+        if (file) {
+          try {
+            const uploadRes = await uploadFile(file);
+            profilePhotoUrl = uploadRes.url;
+          } catch (err) {
+            console.error("Profile photo upload failed", err);
+            // Optionally continue without photo or show error
+          }
+        }
+        await onRegister(formData.name, formData.email, formData.password, profilePhotoUrl, formData.jobTitle, formData.phoneNumber);
       }
     } catch (err) {
       // Improved error handling
@@ -299,6 +376,30 @@ const AuthPage = ({ onLogin, onRegister }) => {
               />
             </div>
           )}
+          {!isLoginView && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 ml-1">Job Title</label>
+                <input
+                  type="text"
+                  placeholder="Designer"
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 dark:text-white outline-none transition-all"
+                  value={formData.jobTitle}
+                  onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 ml-1">Phone</label>
+                <input
+                  type="text"
+                  placeholder="+1 234..."
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 dark:text-white outline-none transition-all"
+                  value={formData.phoneNumber}
+                  onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                />
+              </div>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 ml-1">Email Address</label>
             <input
@@ -319,6 +420,48 @@ const AuthPage = ({ onLogin, onRegister }) => {
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
             />
           </div>
+
+          {!isLoginView && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 ml-1">Profile Photo (Optional)</label>
+              <div className="flex items-center gap-3">
+                <label className="flex items-center justify-center w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors">
+                  <Upload size={20} className="text-slate-400 mr-2" />
+                  <span className="text-sm text-slate-500 dark:text-slate-400 truncate max-w-[200px]">
+                    {file ? file.name : "Upload Photo"}
+                  </span>
+                  <input type="file" className="hidden" onChange={(e) => setFile(e.target.files[0])} />
+                </label>
+                {file && (
+                  <button onClick={() => setFile(null)} className="p-3 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors">
+                    <LogOut size={20} className="rotate-180" />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {!isLoginView && (
+            <div className="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-xl border border-slate-200 dark:border-slate-600">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Security Check: {captcha.q} = ?</label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  placeholder="?"
+                  className="w-20 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-center"
+                  value={captchaInput}
+                  onChange={(e) => setCaptchaInput(e.target.value)}
+                />
+                <button
+                  onClick={generateCaptcha}
+                  className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+                  type="button"
+                >
+                  Refresh Question
+                </button>
+              </div>
+            </div>
+          )}
 
           {error && <p className="text-red-500 text-sm text-center">{error}</p>}
 
@@ -815,5 +958,217 @@ const StatCard = ({ title, value, icon, color }) => (
     </div>
   </div>
 );
+
+const UserMenu = ({ user, onLogout, navigateTo, getInitials }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-2 focus:outline-none"
+      >
+        {user?.profilePhotoUrl ? (
+          <img
+            src={`http://localhost:3000${user.profilePhotoUrl}`}
+            alt={user.name}
+            className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
+          />
+        ) : (
+          <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-700 font-bold border-2 border-white shadow-sm" title={user?.name}>
+            {getInitials(user?.name)}
+          </div>
+        )}
+      </button>
+
+      {isOpen && (
+        <div className="absolute right-0 top-12 w-56 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 py-2 z-50 animate-in zoom-in-95 origin-top-right">
+          <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 mb-2">
+            <p className="font-bold text-slate-900 dark:text-white truncate">{user.name}</p>
+            <p className="text-xs text-slate-500 truncate">{user.email}</p>
+          </div>
+          <button
+            onClick={() => { navigateTo('profile'); setIsOpen(false); }}
+            className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-2"
+          >
+            <User size={16} /> View Profile
+          </button>
+          <button
+            onClick={() => { navigateTo('profile'); setIsOpen(false); }}
+            className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-indigo-600 dark:hover:text-indigo-400 mb-2 flex items-center gap-2"
+          >
+            <Settings size={16} /> Edit Profile
+          </button>
+          <div className="border-t border-slate-100 dark:border-slate-700 pt-2">
+            <button
+              onClick={onLogout}
+              className="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 flex items-center gap-2"
+            >
+              <LogOut size={16} /> Sign Out
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const ProfilePage = ({ user, setUser, onUpdate }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState({
+    name: user.name || '',
+    email: user.email || '',
+    jobTitle: user.jobTitle || '',
+    phoneNumber: user.phoneNumber || '',
+    bio: user.bio || ''
+  });
+  const [file, setFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleSave = async () => {
+    let profilePhotoUrl = user.profilePhotoUrl;
+
+    if (file) {
+      setUploading(true);
+      try {
+        const uploadRes = await uploadFile(file);
+        profilePhotoUrl = uploadRes.url;
+      } catch (err) {
+        console.error("Profile photo upload failed", err);
+        alert("Failed to upload photo");
+        setUploading(false);
+        return;
+      }
+      setUploading(false);
+    }
+
+    onUpdate({ ...formData, profilePhotoUrl });
+    setIsEditing(false);
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto animate-in slide-in-from-bottom-4 duration-500">
+      <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl overflow-hidden border border-slate-200 dark:border-slate-700">
+        <div className="h-32 bg-gradient-to-r from-indigo-500 to-purple-600"></div>
+        <div className="px-8 pb-8">
+          <div className="relative flex justify-between items-end -mt-12 mb-6">
+            <div className="relative group">
+              <div className="w-24 h-24 rounded-full border-4 border-white dark:border-slate-800 bg-white dark:bg-slate-700 overflow-hidden shadow-md">
+                {file ? (
+                  <img src={URL.createObjectURL(file)} alt="Preview" className="w-full h-full object-cover" />
+                ) : user.profilePhotoUrl ? (
+                  <img src={`http://localhost:3000${user.profilePhotoUrl}`} alt={user.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-indigo-600 bg-indigo-50">
+                    {user.name?.charAt(0)}
+                  </div>
+                )}
+              </div>
+              {isEditing && (
+                <label className="absolute bottom-0 right-0 bg-indigo-600 text-white p-2 rounded-full cursor-pointer hover:bg-indigo-700 transition-colors shadow-lg">
+                  <Camera size={16} />
+                  <input type="file" className="hidden" onChange={(e) => setFile(e.target.files[0])} />
+                </label>
+              )}
+            </div>
+            <button
+              onClick={() => isEditing ? handleSave() : setIsEditing(true)}
+              className={`px-6 py-2 rounded-xl font-bold text-sm transition-all ${isEditing
+                ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-200'
+                : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                }`}
+            >
+              {isEditing ? (uploading ? 'Saving...' : 'Save Changes') : 'Edit Profile'}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">{user.name}</h2>
+                <p className="text-indigo-600 dark:text-indigo-400 font-medium">{user.jobTitle || "No Job Title"}</p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 text-slate-600 dark:text-slate-400">
+                  <Mail size={20} />
+                  <span>{user.email}</span>
+                </div>
+                <div className="flex items-center gap-3 text-slate-600 dark:text-slate-400">
+                  <PhoneIcon size={20} />
+                  <span>{user.phoneNumber || "No phone number added"}</span>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 dark:bg-slate-700/50 p-6 rounded-2xl border border-slate-100 dark:border-slate-700">
+                <h3 className="font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+                  <FileText size={18} /> Bio
+                </h3>
+                <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed">
+                  {user.bio || "Write something about yourself..."}
+                </p>
+              </div>
+            </div>
+
+            {isEditing ? (
+              <div className="space-y-4 bg-slate-50 dark:bg-slate-700/30 p-6 rounded-2xl border border-slate-100 dark:border-slate-700">
+                <h3 className="font-bold text-slate-900 dark:text-white mb-4">Edit Details</h3>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Full Name</label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={e => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Job Title</label>
+                  <input
+                    type="text"
+                    value={formData.jobTitle}
+                    onChange={e => setFormData({ ...formData, jobTitle: e.target.value })}
+                    className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none"
+                    placeholder="Software Engineer"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Phone Number</label>
+                  <input
+                    type="text"
+                    value={formData.phoneNumber}
+                    onChange={e => setFormData({ ...formData, phoneNumber: e.target.value })}
+                    className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none"
+                    placeholder="+1 234 567 890"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Bio</label>
+                  <textarea
+                    rows="4"
+                    value={formData.bio}
+                    onChange={e => setFormData({ ...formData, bio: e.target.value })}
+                    className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none"
+                    placeholder="Tell us about yourself..."
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center p-8 bg-slate-50 dark:bg-slate-700/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 text-center">
+                <div>
+                  <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Briefcase size={32} />
+                  </div>
+                  <h3 className="font-bold text-slate-900 dark:text-white">Professional Info</h3>
+                  <p className="text-slate-500 text-sm mt-1">Manage your work details and contact info.</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default App;
