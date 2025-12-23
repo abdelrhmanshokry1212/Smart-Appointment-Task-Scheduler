@@ -41,6 +41,8 @@ import {
   updateUser
 } from './api';
 
+const API_BASE_URL = 'http://localhost:3000'; // API Gateway URL
+
 const App = () => {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -50,6 +52,21 @@ const App = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [productivity, setProductivity] = useState({ score: 0, message: '' });
+
+  // Check for saved session on mount
+  useEffect(() => {
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      try {
+        const parsedUser = JSON.parse(savedUser);
+        setUser(parsedUser);
+        setIsLoggedIn(true);
+      } catch (e) {
+        console.error("Failed to parse user from local storage", e);
+        localStorage.removeItem('user');
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (isDarkMode) {
@@ -71,6 +88,7 @@ const App = () => {
           alert("Session timed out due to inactivity.");
           setIsLoggedIn(false);
           setUser(null);
+          localStorage.removeItem('user');
         }, 15 * 60 * 1000); // 15 minutes
       };
 
@@ -139,11 +157,13 @@ const App = () => {
     return <AuthPage
       onLogin={async (email, password) => {
         const userData = await loginUser(email, password);
+        localStorage.setItem('user', JSON.stringify(userData));
         setUser(userData);
         setIsLoggedIn(true);
       }}
       onRegister={async (name, email, password, profilePhotoUrl, jobTitle, phoneNumber) => {
         const userData = await registerUser(name, email, password, profilePhotoUrl, jobTitle, phoneNumber);
+        localStorage.setItem('user', JSON.stringify(userData));
         setUser(userData);
         setIsLoggedIn(true);
       }}
@@ -197,7 +217,10 @@ const App = () => {
             <span className="font-medium">{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
           </button>
           <button
-            onClick={() => setIsLoggedIn(false)}
+            onClick={() => {
+              setIsLoggedIn(false);
+              localStorage.removeItem('user');
+            }}
             className="flex items-center gap-3 w-full p-3 text-slate-500 dark:text-slate-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 rounded-xl transition-colors"
           >
             <LogOut size={20} />
@@ -359,7 +382,7 @@ const AuthPage = ({ onLogin, onRegister }) => {
           <div className="inline-block bg-indigo-600 p-4 rounded-2xl mb-4 shadow-lg shadow-indigo-200">
             <Calendar className="text-white w-8 h-8" />
           </div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">{isLoginView ? 'Welcome Back' : 'Create Account'}</h1>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">{isLoginView ? 'SmartPlan' : 'Create Account'}</h1>
           <p className="text-slate-500 dark:text-slate-400 mt-2">Manage your time, master your life.</p>
         </div>
 
@@ -671,10 +694,11 @@ const AppointmentListPage = ({ appointments, onDelete, onUpdateStatus }) => {
                   <td className="px-6 py-5 font-bold text-slate-800 dark:text-white flex items-center gap-2">
                     {app.title}
                     {app.fileUrl && (
-                      <a href={`http://localhost:3000${app.fileUrl}`} target="_blank" rel="noopener noreferrer" title="View Attachment" className="text-slate-400 hover:text-indigo-600">
+                      <a href={`${API_BASE_URL}${app.fileUrl}`} target="_blank" rel="noopener noreferrer" title="View Attachment" className="text-slate-400 hover:text-indigo-600">
                         <Paperclip size={14} />
                       </a>
-                    )}
+                    )
+                    }
                   </td>
                   <td className="px-6 py-5 text-slate-500 text-sm">
                     <div className="font-medium text-slate-700 dark:text-slate-300">{app.date}</div>
@@ -970,7 +994,7 @@ const UserMenu = ({ user, onLogout, navigateTo, getInitials }) => {
       >
         {user?.profilePhotoUrl ? (
           <img
-            src={`http://localhost:3000${user.profilePhotoUrl}`}
+            src={`${API_BASE_URL}${user.profilePhotoUrl}`}
             alt={user.name}
             className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
           />
@@ -1057,7 +1081,7 @@ const ProfilePage = ({ user, setUser, onUpdate }) => {
                 {file ? (
                   <img src={URL.createObjectURL(file)} alt="Preview" className="w-full h-full object-cover" />
                 ) : user.profilePhotoUrl ? (
-                  <img src={`http://localhost:3000${user.profilePhotoUrl}`} alt={user.name} className="w-full h-full object-cover" />
+                  <img src={`${API_BASE_URL}${user.profilePhotoUrl}`} alt={user.name} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-indigo-600 bg-indigo-50">
                     {user.name?.charAt(0)}
