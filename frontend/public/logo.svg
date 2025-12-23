@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Background with gradient -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4F46E5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7C3AED;stop-opacity:1" />
+    </linearGradient>
+    <filter id="dropshadow" height="130%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="3"/> <!-- stdDeviation is how much to blur -->
+      <feOffset dx="2" dy="2" result="offsetblur"/> <!-- how much to offset -->
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.3"/> <!-- opacity of shadow -->
+      </feComponentTransfer>
+      <feMerge> 
+        <feMergeNode/> <!-- this contains the offset blurred image -->
+        <feMergeNode in="SourceGraphic"/> <!-- this contains the element that the filter is applied to -->
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Rounded Square Container -->
+  <rect x="32" y="32" width="448" height="448" rx="80" ry="80" fill="url(#bgGradient)" filter="url(#dropshadow)" />
+  
+  <!-- Calendar Header -->
+  <path d="M96 128h320a32 32 0 0 1 32 32v64H64v-64a32 32 0 0 1 32-32z" fill="#FFFFFF" fill-opacity="0.2"/>
+  
+  <!-- Calendar Body Details -->
+  <g fill="#FFFFFF" fill-opacity="0.9">
+     <!-- Checkmark -->
+    <path d="M368 224 L400 256 L224 432 L112 320 L144 288 L224 368 Z" />
+  </g>
+
+  <!-- Binding Rings (Stylized) -->
+  <circle cx="160" cy="96" r="24" fill="#FFFFFF" />
+  <circle cx="352" cy="96" r="24" fill="#FFFFFF" />
+  
+</svg>

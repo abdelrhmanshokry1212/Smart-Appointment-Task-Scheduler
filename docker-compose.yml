@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "3000:3000"
+    depends_on:
+      - user-service
+      - appointment-service
+
+  user-service:
+    build: ./user-service
+    ports:
+      - "3001:3001"
+    environment:
+      - MONGO_URI=mongodb+srv://abraamrefaat_db_user:GaBoxkyGfVKkoiXl@cluster0.essgjzm.mongodb.net/user-service?appName=Cluster0
+
+  appointment-service:
+    build: ./appointment-service
+    ports:
+      - "3002:3002"
+    environment:
+      - MONGO_URI=mongodb+srv://abraamrefaat_db_user:GaBoxkyGfVKkoiXl@cluster0.essgjzm.mongodb.net/appointment-service?appName=Cluster0
+
+  notification-service:
+    build: ./notification-service
+    ports:
+      - "3003:3003"
+
+  audit-service:
+    build: ./audit-service
+    ports:
+      - "3004:3004"
+
+  analytics-service:
+    build: ./analytics-service
+    ports:
+      - "3005:3005"
+
+  storage-service:
+    build: ./storage-service
+    ports:
+      - "3006:3006"
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "4173:4173"
