@@ -33,6 +33,8 @@ export class AppointmentsService {
             console.error('Failed to send notification:', error.message);
         }
 
+        this.sendAuditLog('CREATE_APPOINTMENT', savedAppointment.userId, `Created appointment: ${savedAppointment.title}`);
+
         return savedAppointment;
     }
 
@@ -46,6 +48,7 @@ export class AppointmentsService {
         if (!existingAppointment) {
             throw new NotFoundException(`Appointment #${id} not found`);
         }
+        this.sendAuditLog('UPDATE_APPOINTMENT', existingAppointment.userId, `Updated appointment: ${existingAppointment.title}`);
         return existingAppointment;
     }
 
@@ -54,6 +57,21 @@ export class AppointmentsService {
         if (!deletedAppointment) {
             throw new NotFoundException(`Appointment #${id} not found`);
         }
+        this.sendAuditLog('DELETE_APPOINTMENT', deletedAppointment.userId, `Deleted appointment: ${deletedAppointment.title}`);
         return deletedAppointment;
+    }
+
+    private async sendAuditLog(action: string, userId: string, details: string) {
+        try {
+            await firstValueFrom(
+                this.httpService.post('http://127.0.0.1:3004/logs', {
+                    action,
+                    userId,
+                    details
+                })
+            );
+        } catch (error) {
+            console.error('Failed to send audit log:', error.message);
+        }
     }
 }
