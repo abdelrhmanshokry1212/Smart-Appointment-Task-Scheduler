@@ -49,6 +49,7 @@ const App = () => {
   const [user, setUser] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [appointments, setAppointments] = useState([]);
+  const [editingAppointment, setEditingAppointment] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [productivity, setProductivity] = useState({ score: 0, message: '' });
@@ -252,19 +253,43 @@ const App = () => {
 
         <div className="flex-1 overflow-y-auto p-8">
           {currentPage === 'dashboard' && <DashboardPage appointments={filteredAppointments} productivity={productivity} navigateTo={navigateTo} />}
-          {currentPage === 'list' && <AppointmentListPage appointments={filteredAppointments} onDelete={handleDelete} onUpdateStatus={handleUpdateStatus} />}
-          {currentPage === 'create' && <CreateAppointmentPage onSave={async (app) => {
-            try {
-              console.log("Saving appointment...", app);
-              const payload = { ...app, userId: user._id || user.id };
-              const newApp = await createAppointment(payload);
-              setAppointments([newApp, ...appointments]);
-              navigateTo('list');
-            } catch (err) {
-              console.error(err);
-              alert("Failed to save appointment: " + (err.response?.data?.message || err.message));
-            }
-          }} />}
+          {currentPage === 'list' && (
+            <AppointmentListPage
+              appointments={filteredAppointments}
+              onDelete={handleDelete}
+              onUpdateStatus={handleUpdateStatus}
+              onEdit={(app) => {
+                setEditingAppointment(app);
+                setCurrentPage('create');
+              }}
+            />
+          )}
+          {currentPage === 'create' && (
+            <CreateAppointmentPage
+              initialData={editingAppointment}
+              onSave={async (app) => {
+                try {
+                  if (editingAppointment) {
+                    const updated = await updateAppointment(editingAppointment._id || editingAppointment.id, app);
+                    setAppointments(appointments.map(a => (a._id || a.id) === (updated._id || updated.id) ? updated : a));
+                  } else {
+                    const payload = { ...app, userId: user._id || user.id };
+                    const newApp = await createAppointment(payload);
+                    setAppointments([newApp, ...appointments]);
+                  }
+                  setEditingAppointment(null);
+                  navigateTo('list');
+                } catch (err) {
+                  console.error(err);
+                  alert("Failed to save appointment: " + (err.response?.data?.message || err.message));
+                }
+              }}
+              onCancel={() => {
+                setEditingAppointment(null);
+                navigateTo('list');
+              }}
+            />
+          )}
           {currentPage === 'notifications' && <NotificationsPage notifications={notifications} setNotifications={setNotifications} />}
           {currentPage === 'profile' && (
             <ProfilePage
@@ -274,10 +299,8 @@ const App = () => {
                 try {
                   const updatedUser = await updateUser(user._id || user.id, data);
                   setUser(updatedUser);
-                  alert("Profile updated successfully!");
                 } catch (err) {
                   console.error("Failed to update profile", err);
-                  alert("Failed to update profile");
                 }
               }}
             />
@@ -595,7 +618,7 @@ const DashboardPage = ({ appointments, productivity, navigateTo }) => {
   );
 };
 
-const AppointmentListPage = ({ appointments, onDelete, onUpdateStatus }) => {
+const AppointmentListPage = ({ appointments, onDelete, onUpdateStatus, onEdit }) => {
   const [activeTab, setActiveTab] = useState('upcoming');
   const [showFilters, setShowFilters] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('All');
@@ -741,6 +764,13 @@ const AppointmentListPage = ({ appointments, onDelete, onUpdateStatus }) => {
                           Mark Done
                         </button>
                         <button
+                          onClick={() => { onEdit(app); setRowMenuOpen(null); }}
+                          className="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-indigo-600 dark:hover:text-indigo-400 font-medium flex items-center gap-2"
+                        >
+                          <Settings size={14} />
+                          Edit
+                        </button>
+                        <button
                           onClick={() => { onDelete(app._id || app.id); setRowMenuOpen(null); }}
                           className="w-full text-left px-3 py-2 rounded-lg text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 font-medium flex items-center gap-2"
                         >
@@ -760,7 +790,7 @@ const AppointmentListPage = ({ appointments, onDelete, onUpdateStatus }) => {
   );
 };
 
-const CreateAppointmentPage = ({ onSave }) => {
+const CreateAppointmentPage = ({ onSave, initialData, onCancel }) => {
   const [formData, setFormData] = useState({
     title: '',
     date: '',
@@ -768,6 +798,18 @@ const CreateAppointmentPage = ({ onSave }) => {
     category: 'Work',
     notes: ''
   });
+
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        title: initialData.title || '',
+        date: initialData.date ? initialData.date.split('T')[0] : '',
+        time: initialData.time || '',
+        category: initialData.category || 'Work',
+        notes: initialData.notes || ''
+      });
+    }
+  }, [initialData]);
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
 
@@ -797,12 +839,20 @@ const CreateAppointmentPage = ({ onSave }) => {
   return (
     <div className="max-w-2xl mx-auto animate-in zoom-in-95 duration-300">
       <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-xl p-8 transition-colors">
-        <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Schedule New Appointment</h3>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{initialData ? 'Edit Appointment' : 'Schedule New Appointment'}</h3>
+          {onCancel && (
+            <button onClick={onCancel} className="text-slate-400 hover:text-slate-600">
+              <LogOut size={20} className="rotate-180" />
+            </button>
+          )}
+        </div>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-1">
             <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Appointment Title</label>
             <input
               required
+              value={formData.title}
               className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 dark:text-white outline-none transition-all"
               placeholder="e.g. Project Kickoff Meeting"
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
@@ -815,6 +865,7 @@ const CreateAppointmentPage = ({ onSave }) => {
               <input
                 required
                 type="date"
+                value={formData.date}
                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 dark:text-white outline-none transition-all"
                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
               />
@@ -824,6 +875,7 @@ const CreateAppointmentPage = ({ onSave }) => {
               <input
                 required
                 type="time"
+                value={formData.time}
                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 dark:text-white outline-none transition-all"
                 onChange={(e) => setFormData({ ...formData, time: e.target.value })}
               />
@@ -853,6 +905,7 @@ const CreateAppointmentPage = ({ onSave }) => {
             <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Additional Notes</label>
             <textarea
               rows="4"
+              value={formData.notes}
               className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 dark:text-white outline-none transition-all"
               placeholder="Any details you want to add..."
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
@@ -895,7 +948,7 @@ const CreateAppointmentPage = ({ onSave }) => {
             {uploading ? 'Uploading...' : (
               <>
                 <CheckCircle size={22} />
-                Confirm Appointment
+                {initialData ? 'Update Appointment' : 'Confirm Appointment'}
               </>
             )}
           </button>
